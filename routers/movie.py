@@ -4,7 +4,7 @@ from fastapi.encoders import jsonable_encoder
 from middleware.jwt_middleware import JWTBearer
 from models.movie  import MovieBase, MovieModel
 from config.database import Session
-
+from services.movie import MovieService
 movie_router = APIRouter()
 
 
@@ -12,7 +12,7 @@ movie_router = APIRouter()
 def get_movies() -> list[MovieBase]:
     
     db = Session()
-    result = db.query(MovieModel).all()
+    result = MovieService(db).get_all()
     result = jsonable_encoder(result)
     db.close()
     return JSONResponse(status_code=status.HTTP_200_OK, content=result)
@@ -21,10 +21,10 @@ def get_movies() -> list[MovieBase]:
 def get_movie(id: int = Path(ge=1, le=2000)) -> MovieBase:
 
     db = Session()
-    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    result = MovieService(db).get_one_by_id(id)
     
     if not result:
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message: Item Not Found"})
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Item Not Found"})
     result = jsonable_encoder(result)
 
     return JSONResponse(status_code=status.HTTP_200_OK , content=result )
@@ -32,10 +32,12 @@ def get_movie(id: int = Path(ge=1, le=2000)) -> MovieBase:
 @movie_router.get('/movies/', tags=['movies'], response_model=list[MovieBase])
 def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -> list[MovieBase]:
     db = Session()
-    result = db.query(MovieModel).filter(MovieModel.category == category).all()
+    result = MovieService(db).get_by_category(category)
     if not result:
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message: Item Not Found"})
+        db.close()  
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Item Not Found"})
     result = jsonable_encoder(result)
+    db.close()
 
     return JSONResponse(status_code=status.HTTP_200_OK, content=result)
 
